@@ -1,0 +1,599 @@
+---
+title: "clean boi"
+author: "Peter"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+```{r}
+zagat <- readRDS("~/Downloads/zagat.rds")
+fodors <- readRDS("~/Downloads/fodors.rds")
+bike_share_rides <- readRDS("~/Downloads/bike_share_rides_ch1_1.rds")
+sfo_survey <- readRDS("~/Downloads/sfo_survey_ch2_1.rds")
+ch3_accounts <- readRDS("~/Downloads/ch3_1_accounts.rds")
+```
+
+
+data type constraints
+```{r}
+#glimpse(), lets us see the data types
+```
+
+```{r}
+glimpse(iris)
+```
+
+```{r}
+is.numeric(iris$Sepal.Length) #checks data types
+```
+
+```{r}
+install.packages("assertive")
+```
+
+```{r}
+assert_is_numeric(iris$Sepal.Length) #shows error if something is amiss
+```
+
+```{r}
+#is.character() - assert_is_character()
+#is.numeric() - same format
+#is.logical()
+#is.factor()
+#so on...
+```
+
+```{r}
+class(iris$Sepal.Length)
+class(iris$Species)
+```
+
+```{r}
+install.packages("stringr")
+```
+
+```{r}
+#supposed sales character type with a comma, 5,098
+revenue_trimmed <- str_remove(sales$revenue, ",") #to remove comma
+```
+
+```{r}
+#converting something to numeric:
+as.numeric(revenue_trimmed)
+```
+
+```{r}
+#say we wanted to put this back into original df:
+sales %>%
+  mutate(revenue_usd = as.numeric(str_remove(revenue, ",")))
+```
+
+
+
+```{r}
+#be careful converting factors to numeric!!! factors encoded oddly, use as.charater first
+class(iris$Species)
+as.numeric(iris$Species)
+as.numeric(as.character(iris$Species)) #if the factor had numbers
+```
+
+```{r}
+glimpse(bike_share_rides)
+summary(bike_share_rides$user_birth_year)
+```
+
+```{r}
+bike_share_rides <- bike_share_rides %>%
+  mutate(user_birth_year_fct = as.factor(user_birth_year)) #converting birth year to factor
+```
+
+```{r}
+assert_is_factor(bike_share_rides$user_birth_year_fct)
+```
+
+```{r}
+summary(bike_share_rides$user_birth_year_fct)
+```
+
+```{r}
+bike_share_rides <- bike_share_rides %>%
+  mutate(duration_trimmed = str_remove(duration, "minutes"), duration_mins = as.numeric(duration_trimmed))
+```
+
+```{r}
+glimpse(bike_share_rides)
+```
+
+```{r}
+assert_is_numeric(bike_share_rides$duration_mins) #just to check if it worked 
+```
+
+```{r}
+mean(bike_share_rides$duration_mins)
+```
+
+
+range constraints, package weight cant be less than 0 
+```{r}
+#finding out of range values
+breaks <- c(min(data$variable), 0, 5, max(data$variable))
+
+ggplot(data, aes(variable)) +
+  geom_histogram(breaks = breaks)
+
+#this shows a histogram of the variables that are too low for the range, in the range, and too high for the range
+```
+
+```{r}
+library(assertive)
+
+assert_all_are_in_closed_range(data$variable, lower = 0, upper = 5)
+
+#throws error if anything falls outside of the range, shows which values are too high or low
+```
+
+what to do with out of range values
+```{r}
+#remove if small quantity
+#treat as missing (NA)
+#replace out of range values with range limit, if range is 0-5 and there's a 6 then you replace the 6 with a 5
+#replace values with another number, perhaps the average of all
+```
+
+removing rows
+```{r}
+data %>%
+  filter(variable >= 0, variable <= 5) %>%
+  ggplot(aes(variable)) +
+  geom_histogram(breaks = c(min(data$variable), 0, 5, max(data$variable)))
+
+#histogram just to show that theres no out of range values
+```
+
+treat as missing
+```{r}
+#replace(col, condition, replacement)
+
+data %>%
+  mutate(col_out_range =
+           replace(variable, variable > 5, NA))
+```
+
+replace with range limit
+```{r}
+data %>%
+  mutate(col_new = 
+           replace(variable, variable > 5, 5))
+#anything greater than 5 will be replaced with 5
+```
+
+date range constraints
+```{r}
+assert_all_are_in_past(data$variable1)
+
+#throws error if some are in the future, tells you which ones are
+
+library(lubridate)
+data %>%
+  filter(date_recorded > today())
+#filters for dates in the future, dates can be compared with ><==
+```
+
+removing rows with future dates
+```{r}
+library(lubridate)
+data <- data %>%
+  filter(date_recorded <= today())
+#removes all future dates
+```
+
+practice
+
+```{r}
+bike_share_rides
+```
+
+```{r}
+breaks <- c(min(bike_share_rides$duration), 0, 1440, max(bike_share_rides$duration))
+
+ggplot(bike_share_rides, aes(duration)) +
+  stat_count(breaks = breaks) #use stat_count instead of geom_histogram... gives us weird thing
+
+#this is supposed to work...
+```
+
+```{r}
+#replacing out of range with range max
+bike_share_rides <- bike_share_rides %>%
+  mutate(duraion_const = replace(duration, duration > 1440, 1440))
+```
+
+
+```{r}
+assert_all_are_in_closed_range(bike_share_rides$duraion_const, lower = 0, upper = 1440)
+#need to replace NA
+```
+
+
+```{r}
+bike_share_rides <- bike_share_rides %>%
+  mutate(date = as.Date(date))
+#changing date from character to date
+```
+
+```{r}
+assert_all_are_in_past(bike_share_rides$date)
+#checks for dates in the future
+```
+
+```{r}
+#lubridate package
+bike_share_rides <- bike_share_rides %>%
+  filter(date <= today())
+#filters for dates not in future
+```
+
+```{r}
+assert_all_are_in_past(bike_share_rides$date)
+```
+
+
+uniqueness constraints
+```{r}
+duplicated(df)
+#finds duplicates, FALSE FALSE TRUE etc
+```
+
+dropping full duplicates, removes all but one of the duplicates
+```{r}
+df_unique <- distinct(df)
+```
+
+partial duplicates
+```{r}
+dup_ids <- df %>%
+  count(variable1, variable2) %>% #counts number of occurences for pairings
+  filter(n >1) #filters for pairs that occur more than once, so the duplicates
+```
+
+```{r}
+df %>%
+  filter(variable1 %in% dup_ids$variable1, variable2 %in% dup_ids$variable2) #gives a list of all full and partial duplicates
+```
+
+dropping partial duplicates
+```{r}
+df %>%
+  distinct(variable1, variable2, .keep_all = TRUE) #duplicates matched on just 2 variables instead of all like full duplicates are, .keep_all = TRUE keeps all columns of dataset instead of just var1 and var2
+```
+
+partial duplicates, summarizing
+```{r}
+df %>%
+  group_by(variable1, variable2) %>%
+  mutate(mean_var_3 = mean(variable3)) %>% #mean of other variable between partial duplicates, non duplicates are left the same but now are under mean_var_3 instead of var3
+  distinct(variable1, variable2, .keep_all = TRUE) %>%
+  select(-variable3) #cleans up
+```
+
+
+
+```{r}
+sum(duplicated(bike_share_rides)) #sum of full dups
+```
+
+```{r}
+bike_share_rides_unique <- distinct(bike_share_rides)
+```
+
+```{r}
+sum(duplicated(bike_share_rides_unique))
+```
+
+```{r}
+bike_share_rides %>%
+  count(ride_id) %>%
+  filter(n > 1)
+#theres supposed to be 2 rows that are >1
+```
+
+```{r}
+bike_share_rides_unique <- bike_share_rides %>%
+  distinct(ride_id, .keep_all = TRUE) #based on ride_id, so partial duplicates included
+```
+
+```{r}
+bike_share_rides_unique %>%
+  count(ride_id) %>%
+  filter(n > 1)
+#checking to be sure that theyre all removed
+```
+
+```{r}
+#aggregating partial duplicates
+bike_share_rides %>%
+  group_by(ride_id, date) %>%
+  mutate(duration_avg = mean(duration)) %>%
+  distinct(ride_id, date, .keep_all = TRUE) %>%
+  select(-duration)
+```
+
+
+SHOULDVE CHECKED THAT IT WAS NUMERIC EARLIER
+```{r}
+# Assuming your dataset is called "bike_share_rides", from chat gpt since duration is character not numeric
+bike_share_rides$duration <- gsub(" minutes", "", bike_share_rides$duration)
+# gsub: This function replaces a specified pattern with another string. In this case, you can replace " minutes" with an empty string.
+```
+
+```{r}
+bike_share_rides$duration <- as.numeric(bike_share_rides$duration)
+bike_share_rides
+```
+
+
+problems in text and categorical data
+```{r}
+levels(variable) #shows different factors, for example t shirt sizes s, m, l, xl
+#factors cant have values that fall outside of the predefined ones, you cant have an xxl t shirt
+```
+
+filtering joins, semi, anti
+```{r}
+#df1: say it contains blood type data, with name, birthday and blood type
+#df2: contains all possible blood types
+#maybe df1 has a blood type that doesnt exist
+```
+
+```{r}
+df1 %>%
+  anti_join(df2, by = "variable")
+#gives us the specific row that sticks out as not having one of the predefined answers to the factor, if there was a z+ blood type for example
+```
+
+```{r}
+df1 %>%
+  semi_join(df2, by = "variable")
+#gets rows that are LEGIT, removes bs bloodtypes
+```
+
+
+practice checking membership
+```{r}
+sfo_survey %>%
+  count(dest_size)
+```
+
+```{r}
+sfo_survey %>% #I dont have the separate dest_sizes df, pretend i do
+  anti_join(dest_sizes, by = "dest_size") %>% #joining to see which dest_size rows dont belong 
+  select(id, airline, destination, dest_size) #making it less muddled
+#the output of this code shows 4 different instances where the dest_size are not members
+```
+
+```{r}
+sfo_survey %>%
+  semi_join(dest_sizes, by = "dest_size") %>% #joins together with another df
+  count(dest_size) 
+```
+
+
+categorical data problems
+```{r}
+#2 types of problems :
+#inconsistency within a category, capital letters... for example
+#too many categories, decategorize into something simpler, for example pug, lab, and golden retriever could just be grouped as dogs
+```
+
+```{r}
+df %>% 
+  count(variable) #checking for problems in the data, if there are multiple categories for the same thing... check spaces, caps
+```
+
+```{r}
+library(stringr)
+#fixing case inconsistencies
+df %>%
+  mutate(var_lower = str_to_lower(variable)) #makes it lowercase
+```
+
+```{r}
+df %>%
+  mutate(var_upper = str_to_upper(variable)) #makes it uppercase
+```
+
+```{r}
+df %>%
+  mutate(var_trimmed = str_trim(variable)) #removes whitespace from beginning or end, any extra spaces 
+```
+
+```{r}
+#checking the dataset now:
+df %>%
+  count(var_trimmed, sort = TRUE)
+```
+
+```{r}
+#collapsing categories
+other_categories = c("z1", "z2", "z3", "z4")
+
+library(forcats)
+
+df %>%
+  mutate(var_collapsed = fct_collapse(var_trimmed, other = other_categories)) #this collapses excess categories with not much data into something called "other" or whatever you want, "other" is what the category is renamed as
+```
+
+practice
+```{r}
+sfo_survey %>%
+  count(dest_size)
+```
+
+```{r}
+sfo_survey %>%
+  count(cleanliness)
+```
+
+```{r}
+sfo_survey <- sfo_survey %>%
+  mutate(dest_size_trimmed = str_trim(dest_size), cleanliness_lower = str_to_lower(cleanliness))
+```
+
+```{r}
+sfo_survey %>%
+  count(dest_size_trimmed)
+```
+
+```{r}
+sfo_survey %>%
+  count(cleanliness_lower)
+```
+
+```{r}
+sfo_survey %>%
+  count(dest_region)
+```
+
+```{r}
+#pretend there are different europe categories...
+europe_categories <- c("EU", "eur", "Europ")
+```
+
+```{r}
+sfo_survey %>%
+  mutate(dest_region_collapsed = fct_collapse(dest_region, Europe = europe_categories)) %>%
+  count(dest_region_collapsed)
+```
+
+cleaning text data
+```{r}
+#formatting inconsistency: different ways to write stuff, phone numbers... (919) 667-7880 or 9196677880
+#information inconsistency: different interpretations, phone numbers... +1 919-667-7880 or 919-667-7880
+#invalid data: data that doesnt make sense, phone number with 4 numbers, zip code that doesnt exist
+```
+
+```{r}
+library(stringr)
+
+str_detect(df$variable, "-") #detects something in data, for example a credit card with hyphenated spaces between numbers, pattern wanted to detect
+df %>%
+  filter(str_detect(df$variable, "-"))
+```
+
+```{r}
+df %>%
+  mutate(variable_spaces = str_replace_all(variable, "-", " ")) #replaces unwanted pattern with wanted pattern, what you want to replace "-" first and want you want to replace it " " second. Removes variable and adds in variable_spaces
+```
+
+```{r}
+#removing all of the pattern, in this example " " and "-"
+df_clean <- df$variable %>%
+  str_remove_all("-") %>%
+  str_remove_all(" ")
+```
+
+```{r}
+#find invalid units, if length is the same
+str_length(df$variable)
+
+df %>%
+  filter(str_length(variable) != 16) #finds all units that arent 16 characters long
+
+df %>%
+  filter(str_length(variable) == 16) #removes non 16 characters from dataset by filtering
+```
+
+```{r}
+#regular expressions are sequences of characters that allows for robust searching within a string
+```
+
+practice
+```{r}
+#pretend i have phone column...
+sfo_survey %>%
+  filter(str_detect(phone, "-")) #shows all rows with hyphens
+```
+
+```{r}
+sfo_survey %>%
+  filter(str_detect(phone, fixed("(")) | str_detect(phone, fixed(")"))) #shows rows with () around phone number
+```
+
+```{r}
+#removing parenthesis from phone column
+phone_no_parens <- sfo_survey$phone %>%
+  str_remove_all(fixed("(")) %>%
+  str_remove_all(fixed(")"))
+```
+
+```{r}
+#adding phone_no_parens as column
+sfo_survey %>%
+  mutate(phone_no_parens = phone_no_parens)
+```
+
+```{r}
+#replacing all hyphens with spaces
+sfo_survey %>%
+  mutate(phone_no_parens = phone_no_parens, phone_clean = str_remove_all(phone_no_parens, "-", " ")) #BE SURE to add in what you want to replace WITH second
+```
+
+```{r}
+#checking for invalid phone numbers
+sfo_survey %>%
+  filter(str_length(phone) != 12) 
+```
+
+```{r}
+#filtering out all invalid numbers
+sfo_survey %>%
+  filter(str_length(phone) == 12)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
